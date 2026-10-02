@@ -32,17 +32,10 @@ from .data.strict import (
     collate_strict_metro,
 )
 from .utils.common import set_seed, json_ready
+from .utils.provenance import file_sha256 as sha256, verify_checkpoint_inputs
 
 
 TRAINER_VERSION = "amtpp-r2-network-extension-trainer-1.2.0"
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 HISTORY_SAMPLING_BINS = (
@@ -130,13 +123,28 @@ def topology_arrays(
     if path is None:
         return None, None, None
     source = path.resolve()
-    loaded = np.load(source)
     required = {"raw_station_id", "shortest_hops"}
-    if not required.issubset(loaded.files):
-        raise ValueError(f"Topology artifact missing {sorted(required - set(loaded.files))}")
-    raw_values = loaded["raw_station_id"].tolist()
+    with np.load(source, allow_pickle=False) as loaded:
+        if not required.issubset(loaded.files):
+            raise ValueError(f"Topology artifact missing {sorted(required - set(loaded.files))}")
+        raw_ids = loaded["raw_station_id"]
+        source_hops = loaded["shortest_hops"].astype(np.float32)
+    if raw_ids.ndim != 1 or source_hops.shape != (len(raw_ids) + 1, len(raw_ids) + 1):
+        raise ValueError("Topology array shapes do not match the station IDs plus PAD")
+    raw_values = raw_ids.tolist()
+    if len({str(value) for value in raw_values}) != len(raw_values):
+        raise ValueError("Topology station IDs must be unique")
+    distances = source_hops[1:, 1:]
+    if (
+        np.isnan(distances).any()
+        or (distances < 0).any()
+        or not np.allclose(distances, distances.T)
+        or not np.all(np.diag(distances) == 0)
+        or np.any(distances[np.isfinite(distances)] != np.floor(distances[np.isfinite(distances)]))
+        or np.any(distances[~np.eye(len(raw_ids), dtype=bool)] == 0)
+    ):
+        raise ValueError("Topology requires symmetric nonnegative integer hops, zero diagonal, and positive off-diagonal distances")
     source_index = {str(value): index + 1 for index, value in enumerate(raw_values)}
-    source_hops = loaded["shortest_hops"].astype(np.float32)
     hops = np.full((corpus.S, corpus.S), np.inf, dtype=np.float32)
     hops[0, 0] = 0.0
     for raw_left, model_left in corpus.station_to_index.items():
@@ -214,7 +222,7 @@ def run_epoch(
                 optimizer.zero_grad(set_to_none=True)
                 losses["total"].backward()
                 if grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip, error_if_nonfinite=True)
                 optimizer.step()
         for name in names:
             sums[name] += float(losses[name].detach().item()) * count
@@ -877,6 +885,7 @@ def main() -> None:
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     data_path = args.data.resolve()
+    data_sha256 = sha256(data_path)
     trip_frame = pd.read_pickle(data_path)
     metro_cfg = StrictMetroConfig(
         city=args.city,
@@ -1112,6 +1121,7 @@ def main() -> None:
                         "model": model.state_dict(),
                         "model_cfg": dataclasses.asdict(model_cfg),
                         "metro_cfg": dataclasses.asdict(metro_cfg),
+                        "data_sha256": data_sha256,
                         "corpus_summary": corpus.summary(),
                         "run_id": args.run_id,
                         "seed": args.seed,
@@ -1130,6 +1140,14 @@ def main() -> None:
             if stale >= args.patience:
                 break
         state = torch.load(checkpoint_path, map_location=args.device, weights_only=False)
+    input_verification = verify_checkpoint_inputs(
+        state,
+        data_config=dataclasses.asdict(metro_cfg),
+        data_sha256=data_sha256,
+        corpus_summary=corpus.summary(),
+        topology=topology_metadata,
+        check_topology=True,
+    )
     model.load_state_dict(state["model"], strict=True)
     validation_evaluation = evaluate_events(
         model,
@@ -1182,7 +1200,8 @@ def main() -> None:
         "finished_at_utc": finished.isoformat(),
         "elapsed_seconds": (finished - started).total_seconds(),
         "device": args.device,
-        "data": {"path": str(data_path), "sha256": sha256(data_path)},
+        "data": {"path": str(data_path), "sha256": data_sha256},
+        "checkpoint_input_verification": input_verification,
         "protocol": dataclasses.asdict(metro_cfg),
         "corpus": corpus.summary(),
         "model_config": dataclasses.asdict(model_cfg),

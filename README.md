@@ -2,7 +2,7 @@
 
 PyTorch implementation of **Attentive Marked Temporal Point Processes** for predicting the next trip's inter-trip time, origin, and destination.
 
-The model combines causal attention, daily and weekly positional embeddings, an asymmetric log-Laplace time mixture, and a low-rank origin–destination head. An optional transportation network adapter propagates station embeddings through an aligned adjacency matrix.
+The model combines causal attention, daily and weekly positional embeddings, an asymmetric log-Laplace time mixture, and a low-rank origin–destination head. An optional transportation network adapter propagates station embeddings through an aligned adjacency matrix. See [model calculations](docs/model.md) for causal alignment, density definitions, and destination objectives.
 
 ## Install
 

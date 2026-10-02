@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "Please cite the AMTPP manuscript when using this software."
 type: software
 title: "AMTPP: Learning to Predict Individual Mobility Trips with Attentive Marked Temporal Point Processes"
-version: 0.1.0
+version: 0.1.1
 authors:
   - family-names: Tang
     given-names: Yihong

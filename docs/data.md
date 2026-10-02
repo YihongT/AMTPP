@@ -5,7 +5,7 @@ Input is a local pandas DataFrame serialized with `DataFrame.to_pickle()`. Load 
 - Use consistent types within each identifier column. User IDs and station IDs must be sortable.
 - Use a shared station encoding for origin and destination. Index 0 is reserved internally for padding; input station IDs are mapped automatically.
 - Use nonmissing, timezone-naive departure timestamps in the city's local time. Convert timezone-aware timestamps before serialization.
-- Remove invalid station labels and origin-equals-destination records. Departure records are sorted within each user; equal timestamps receive a minimum interval of 0.001 hours.
+- Remove invalid station labels and origin-equals-destination records. Departure records are sorted within each user. The strict protocol requires distinct departure timestamps within each user; duplicate times are rejected.
 - The strict implementation requires every retained station to occur in training users' history. It raises an error on unseen validation/test stations instead of adding them from future data.
 
 ## Windows and users

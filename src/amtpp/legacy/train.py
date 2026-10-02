@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from ..data.legacy import MetroConfig, MetroTripDataset, collate_metro, split_by_users
 from ..models.prediction import AMTPPPred, AMTPPPredConfig
 from ..utils.common import set_seed
+from ..utils.provenance import file_sha256
 from .epochs import train_one_epoch, eval_one_epoch
 
 
@@ -38,6 +39,7 @@ def main() -> None:
     if args.epochs < 1 or args.patience < 1:
         parser.error("epochs and patience must be positive")
     set_seed(args.seed)
+    data_sha256 = file_sha256(args.data)
     data_config = MetroConfig(min_trips=args.min_trips, history_end=args.history_end, future_start=args.future_start)
     dataset = MetroTripDataset(pd.read_pickle(args.data), data_config)
     train_indices, validation_indices, _ = split_by_users(len(dataset), seed=args.seed)
@@ -60,7 +62,7 @@ def main() -> None:
         if validation["loss"] < best:
             best = validation["loss"]
             stale = 0
-            torch.save({"model": model.state_dict(), "metro_cfg": dataclasses.asdict(data_config), "model_cfg": dataclasses.asdict(model_config), "epoch": epoch, "best_val": best, "model_type": "amtpp", "seed": args.seed}, args.checkpoint)
+            torch.save({"model": model.state_dict(), "metro_cfg": dataclasses.asdict(data_config), "data_sha256": data_sha256, "model_cfg": dataclasses.asdict(model_config), "evaluation_batch_size": args.batch_size, "epoch": epoch, "best_val": best, "model_type": "amtpp", "seed": args.seed}, args.checkpoint)
         else:
             stale += 1
             if stale >= args.patience:

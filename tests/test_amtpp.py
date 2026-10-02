@@ -8,6 +8,7 @@ import torch
 from amtpp import AMTPP, AMTPPConfig
 from amtpp.data.strict import StrictMetroConfig, StrictMetroCorpus, collate_strict_metro
 from amtpp.utils.common import set_seed
+from amtpp.models.amtpp import almixture_log_prob_tau
 
 
 def example_frame():
@@ -81,6 +82,67 @@ class AMTPPTest(unittest.TestCase):
         changed = self.forward(model, changed_batch)
         for key in ("o_prob", "d_prob", "w", "beta_hat", "lambda_hat", "gamma_hat"):
             torch.testing.assert_close(original[key][:, -1], changed[key][:, -1], rtol=0, atol=0)
+
+    def test_stepwise_prediction_matches_causal_forward(self):
+        for graph in (False, True):
+            model = self.model(graph).eval()
+            expected = self.forward(model)
+            for index in (0, 2, self.batch["tau"].shape[1] - 1):
+                next_prediction = model.predict_next(
+                    self.batch["cond"],
+                    **{f"{key}_ctx": self.batch[key][:, :index] for key in ("tau", "hour", "dow", "origin", "dest")},
+                )
+                for key in ("o_prob", "d_prob", "od_prob", "w", "beta_hat", "lambda_hat", "gamma_hat"):
+                    with self.subTest(graph=graph, index=index, key=key):
+                        torch.testing.assert_close(next_prediction[key], expected[key][:, index], rtol=2e-5, atol=1e-6)
+
+    def test_padding_does_not_change_valid_predictions(self):
+        model = self.model().eval()
+        expected = self.forward(model)
+        padded = dict(self.batch)
+        for key in ("tau", "hour", "dow", "origin", "dest", "mask"):
+            value = self.batch[key]
+            padded[key] = torch.cat([value, value.new_zeros((value.shape[0], 3))], dim=1)
+        actual = self.forward(model, padded)
+        for key in ("o_prob", "d_prob", "w", "beta_hat", "lambda_hat", "gamma_hat"):
+            torch.testing.assert_close(actual[key][:, :-3], expected[key], rtol=2e-5, atol=1e-6)
+
+    def test_nll_matches_manual_marginal_and_conditional_objectives(self):
+        model = self.model().eval()
+        output = self.forward(model)
+        mask = self.batch["target_mask"].float()
+        denominator = mask.sum() + 1e-6
+        time_mask = mask.clone()
+        time_mask[:, 0] = 0
+        time_logp = almixture_log_prob_tau(self.batch["tau"], **{key: output[key] for key in ("w", "beta_hat", "lambda_hat", "gamma_hat")})
+        manual_time = -(time_logp * time_mask).sum() / (time_mask.sum() + 1e-6)
+        origin_prob = output["o_prob"].gather(-1, self.batch["origin"].unsqueeze(-1)).squeeze(-1)
+        manual_origin = -(origin_prob.clamp_min(1e-12).log() * mask).sum() / denominator
+        for objective in ("marginal", "conditional"):
+            model.cfg.destination_objective = objective
+            if objective == "marginal":
+                probability = output["d_prob"]
+            else:
+                probability = output["od_prob"].gather(-1, self.batch["origin"][..., None, None].expand(-1, -1, model.n_locs, 1)).squeeze(-1)
+            true_probability = probability.gather(-1, self.batch["dest"].unsqueeze(-1)).squeeze(-1)
+            manual_destination = -(true_probability.clamp_min(1e-12).log() * mask).sum() / denominator
+            losses = model.nll(output, self.batch["tau"], self.batch["origin"], self.batch["dest"], torch.zeros_like(mask), self.batch["target_mask"])
+            torch.testing.assert_close(losses["nll_tau"], manual_time)
+            torch.testing.assert_close(losses["nll_o"], manual_origin)
+            torch.testing.assert_close(losses["nll_d"], manual_destination)
+            torch.testing.assert_close(losses["total"], manual_time + manual_origin + manual_destination)
+
+    def test_graph_adapter_propagates_embeddings_without_od_bias(self):
+        model = self.model(graph=True).eval()
+        output = self.forward(model)
+        with torch.no_grad():
+            model.od_logit_bias.fill_(1000)
+        changed_bias = self.forward(model)
+        torch.testing.assert_close(output["d_prob"], changed_bias["d_prob"], rtol=0, atol=0)
+        with torch.no_grad():
+            model.normalized_topology_adjacency.zero_()
+        without_neighbors = self.forward(model)
+        self.assertGreater((output["d_prob"] - without_neighbors["d_prob"]).abs().max().item(), 1e-7)
 
 
 if __name__ == "__main__":
