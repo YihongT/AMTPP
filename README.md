@@ -54,12 +54,6 @@ Use `configs/guangzhou.json` for Guangzhou. To enable the network adapter, add `
 
 The default configurations use user-disjoint splits, training-history station vocabulary, and training targets before the temporal cutoff. The original primary-table protocol is retained under `configs/legacy_*.json`; it uses full sequences and different metric aggregation. **Use the configuration matching the experiment being reproduced.** See [reproduction notes](docs/reproduction.md).
 
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-```
-
 Only AMTPP code is included. Transit records, fitted checkpoints, and individual prediction artifacts are excluded; the example generator creates artificial data locally.
 
 ## Citation and license

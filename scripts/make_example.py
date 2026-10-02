@@ -1,4 +1,4 @@
-"""Generate artificial trip records for a local CPU smoke run."""
+"""Generate artificial trip records for the CPU quick-start example."""
 from pathlib import Path
 import argparse
 
