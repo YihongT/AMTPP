@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amtpp"
+version = "0.1.0"
+description = "Attentive Marked Temporal Point Processes for individual trip prediction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "Yihong Tang"}]
+dependencies = ["numpy>=1.24", "pandas>=2.0", "torch>=2.1", "tqdm>=4.66"]
+
+[project.scripts]
+amtpp-run = "amtpp.cli:main"
+amtpp-train = "amtpp.train:main"
+amtpp-legacy-train = "amtpp.legacy.train:main"
+amtpp-legacy-evaluate = "amtpp.legacy.evaluate:main"
+
+[project.urls]
+Repository = "https://github.com/YihongT/AMTPP-code"
+
+[tool.setuptools.packages.find]
+where = ["src"]

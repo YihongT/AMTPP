@@ -1,0 +1,20 @@
+{
+  "protocol": "strict",
+  "arguments": {
+    "city": "hangzhou",
+    "history-end": "2019-01-20 23:59:59",
+    "future-start": "2019-01-21 00:00:00",
+    "min-trips": 40,
+    "K": 16,
+    "split-seed": 42,
+    "rank": 3,
+    "batch-size": 128,
+    "epochs": 100,
+    "patience": 8,
+    "lr": 0.001,
+    "weight-decay": 1e-05,
+    "destination-objective": "conditional",
+    "time-to-spatial-mode": "raw",
+    "od-head": "low_rank"
+  }
+}

@@ -1,0 +1,5 @@
+# Python 3.13.5; install the appropriate CPU/CUDA PyTorch build for your system.
+torch==2.6.0
+numpy==2.3.3
+pandas==2.3.3
+tqdm==4.67.1

@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-tested.txt
+          python -m pip install -e .
+      - name: Check model and protocol
+        run: python -m unittest discover -s tests -v
+      - name: Check training and evaluation
+        run: |
+          python scripts/make_example.py
+          amtpp-run --config configs/example.json --data data/example.pkl --output outputs/example
+          amtpp-run --config configs/example.json --data data/example.pkl --output outputs/example --evaluate

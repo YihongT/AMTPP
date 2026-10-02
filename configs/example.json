@@ -1,0 +1,21 @@
+{
+  "protocol": "strict",
+  "arguments": {
+    "city": "hangzhou",
+    "history-end": "2020-01-04 23:59:59",
+    "future-start": "2020-01-05 00:00:00",
+    "min-trips": 6,
+    "epochs": 2,
+    "patience": 2,
+    "batch-size": 8,
+    "d-loc": 4,
+    "d-dow": 4,
+    "d-hour": 4,
+    "n-heads": 2,
+    "c-model": 8,
+    "K": 2,
+    "rank": 2,
+    "destination-objective": "conditional",
+    "time-to-spatial-mode": "raw"
+  }
+}

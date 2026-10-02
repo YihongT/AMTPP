@@ -1,0 +1,14 @@
+{
+  "protocol": "legacy",
+  "arguments": {
+    "history-end": "2019-01-20 23:59:59",
+    "future-start": "2019-01-21 00:00:00",
+    "min-trips": 40,
+    "K": 16,
+    "rank": 3,
+    "batch-size": 256,
+    "epochs": 200,
+    "patience": 10,
+    "lr": 0.001
+  }
+}
