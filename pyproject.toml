@@ -19,7 +19,7 @@ amtpp-legacy-train = "amtpp.legacy.train:main"
 amtpp-legacy-evaluate = "amtpp.legacy.evaluate:main"
 
 [project.urls]
-Repository = "https://github.com/YihongT/AMTPP-code"
+Repository = "https://github.com/YihongT/AMTPP"
 
 [tool.setuptools.packages.find]
 where = ["src"]

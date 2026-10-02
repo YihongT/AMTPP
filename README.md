@@ -9,8 +9,8 @@ The model combines causal attention, daily and weekly positional embeddings, an 
 Python 3.10 or newer:
 
 ```bash
-git clone https://github.com/YihongT/AMTPP-code.git
-cd AMTPP-code
+git clone https://github.com/YihongT/AMTPP.git
+cd AMTPP
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
